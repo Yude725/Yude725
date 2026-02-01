@@ -1,0 +1,78 @@
+# 当提交推送到默认分支时，此工作流将构建一个 Node.js 应用程序并将其推送到 Azure Web 应用程序。
+#
+# 此工作流假设您已创建目标 Azure 应用服务 Web 应用。
+# 有关说明，请参阅 https://docs.microsoft.com/en-us/azure/app-service/quickstart-nodejs?tabs=linux&pivots=development-environment-cli
+#
+# 配置此工作流程：
+#
+# 1. 下载 Azure Web 应用程序的发布配置文件。您可以从 Azure 门户中 Web 应用程序的概述页面下载此文件。
+# 有关详细信息：https://docs.microsoft.com/en-us/azure/app-service/deploy-github-actions?tabs=applevel#generate-deployment-credentials
+#
+# 2. 在存储库中创建一个名为 AZURE_WEBAPP_PUBLISH_PROFILE 的密钥，将发布配置文件内容粘贴为密钥的值。
+# 有关获取发布配置文件的说明，请参阅：https://docs.microsoft.com/azure/app-service/deploy-github-actions#configure-the-github-secret
+#
+# 3. 更改 AZURE_WEBAPP_NAME 的值。 （可选）更改下面的 AZURE_WEBAPP_PACKAGE_PATH 和 NODE_VERSION 环境变量。
+#
+# 有关 Azure 的 GitHub Actions 的更多信息：https://github.com/Azure/Actions
+# 有关 Azure Web Apps 部署操作的更多信息：https://github.com/Azure/webapps-deploy
+# 有关开始使用 GitHub Action 工作流部署到 ​​Azure 的更多示例：https://github.com/Azure/actions-workflow-samples
+
+在：:
+  推：:
+    分支：[“主要”]: [ "main" ]
+  工作流程_调度：:
+
+环境：:
+  AZURE_WEBAPP_NAME: your-app-name # 将其设置为您的应用程序的名称: your-app-name    # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH：“。” # 将其设置为您的 Web 应用程序项目的路径，默认为存储库根目录: '.'      # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: '20.x' # 将其设置为要使用的节点版本: '20.x'                # set this to the node version to use
+
+权限：:
+  内容： 阅读: read
+
+职位：:
+  建造：:
+    运行：ubuntu-latest: ubuntu-latest
+    步骤：:
+    - 使用：actions/checkout@v4uses: actions/checkout@v4
+
+    - 名称：设置 Node.jsname: Set up Node.js
+      使用：actions/setup-node@v4: actions/setup-node@v4
+      和：:
+        节点版本：${{ env.NODE_VERSION }}: ${{ env.NODE_VERSION }}
+        缓存：'npm': 'npm'
+
+    - 名称：npm 安装、构建和测试name: npm install, build, and test
+      运行：|: |
+        npm 安装
+        npm run build --如果存在
+        npm 运行测试 --if-present
+
+    - 名称：上传部署作业的工件name: Upload artifact for deployment job
+      使用：actions/upload-artifact@v4: actions/upload-artifact@v4
+      和：:
+        名称：节点应用程序: node-app
+        小路： 。: .
+
+  部署：:
+    权限：:
+      内容：无: none
+    运行：ubuntu-latest: ubuntu-latest
+    需求：构建: build
+    环境：:
+      名称：“发展”: 'Development'
+      网址：${{steps.deploy-to-webapp.outputs.webapp-url}}: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    步骤：:
+    - 名称：从构建作业下载工件name: Download artifact from build job
+      使用：actions/download-artifact@v4: actions/download-artifact@v4
+      和：:
+        名称：节点应用程序: node-app
+
+    - 名称：“部署到 Azure WebApp”name: 'Deploy to Azure WebApp'
+      id：部署到 web 应用程序: deploy-to-webapp
+      使用：azure/webapps-deploy@v2: azure/webapps-deploy@v2
+      和：:
+        应用程序名称：${{ env.AZURE_WEBAPP_NAME }}: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
